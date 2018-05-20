@@ -18,15 +18,15 @@ The provided converters are:
 
 MacOS/Linux | Windows
 --- | ---
-[![Travis Badge](https://travis-ci.org/baronfel/MyLib.svg?branch=master)](https://travis-ci.org/baronfel/MyLib) | [![Build status](https://ci.appveyor.com/api/projects/status/github/baronfel/MyLib?svg=true)](https://ci.appveyor.com/project/baronfel/MyLib)
-[![Build History](https://buildstats.info/travisci/chart/baronfel/MyLib)](https://travis-ci.org/baronfel/MyLib/builds) | [![Build History](https://buildstats.info/appveyor/chart/baronfel/MyLib)](https://ci.appveyor.com/project/baronfel/MyLib)  
+[![Travis Badge](https://travis-ci.org/baronfel/Newtonsoft.Json.FSharp.Idiomatic.svg?branch=master)](https://travis-ci.org/baronfel/Newtonsoft.Json.FSharp.Idiomatic) | [![Build status](https://ci.appveyor.com/api/projects/status/github/baronfel/Newtonsoft.Json.FSharp.Idiomatic?svg=true)](https://ci.appveyor.com/project/baronfel/Newtonsoft.Json.FSharp.Idiomatic)
+[![Build History](https://buildstats.info/travisci/chart/baronfel/Newtonsoft.Json.FSharp.Idiomatic)](https://travis-ci.org/baronfel/Newtonsoft.Json.FSharp.Idiomatic/builds) | [![Build History](https://buildstats.info/appveyor/chart/baronfel/Newtonsoft.Json.FSharp.Idiomatic)](https://ci.appveyor.com/project/baronfel/Newtonsoft.Json.FSharp.Idiomatic)  
 
 
 ## Nuget 
 
 Stable | Prerelease
 --- | ---
-[![NuGet Badge](https://buildstats.info/nuget/MyLib)](https://www.nuget.org/packages/MyLib/) | [![NuGet Badge](https://buildstats.info/nuget/MyLib?includePreReleases=true)](https://www.nuget.org/packages/MyLib/)
+[![NuGet Badge](https://buildstats.info/nuget/Newtonsoft.Json.FSharp.Idiomatic)](https://www.nuget.org/packages/Newtonsoft.Json.FSharp.Idiomatic/) | [![NuGet Badge](https://buildstats.info/nuget/Newtonsoft.Json.FSharp.Idiomatic?includePreReleases=true)](https://www.nuget.org/packages/Newtonsoft.Json.FSharp.Idiomatic/)
 
 ---
 
