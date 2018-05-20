@@ -34,15 +34,12 @@ type SingleCaseDU =
 | A
 | B
 
-type MostlySingleCaseDU =
-| A
-| B of value: string
-
 type DeserializationTargetSingle =
   { things: SingleCaseDU }
 
-type DeserializationTargetMulti =
-  { things: MostlySingleCaseDU }
+type MostlySingleCaseDU =
+| A
+| B of value: string
 
 [<Tests>]
 let singleCaseTests =
@@ -67,10 +64,14 @@ let singleCaseTests =
     }
 
     yield test "can read case" {
-      let result: DeserializationTargetSingle = deserializer """{ "things" : "A"}"""
+      let result = deserializer """{ "things" : "A"}"""
       Expect.equal result {things = SingleCaseDU.A } "should translate back again"
     }
   ]
+
+type DeserializationTargetMulti =
+  { things: MostlySingleCaseDU }
+
 
 [<Tests>]
 let multiCaseTests =
@@ -94,15 +95,33 @@ let multiCaseTests =
       Expect.equal result """{"kind":"B","value":"foobar"}""" "should serialize correctly"
     }
     yield test "can read case" {
-      let result: DeserializationTargetMulti = deserializer """{"things":{"kind": "B", "value":"foo"}}"""
+      let result = deserializer """{"things":{"kind": "B", "value":"foo"}}"""
       Expect.equal result { things = MostlySingleCaseDU.B "foo" } "should translate back again"
     }
   ]
+
+type Harness =
+| TestCase of boolProp: bool * floatProp : float * intProp : int16 * strProp : string * arrProp : int list * nestedArrs : int list list
 
 [<Tests>]
 let outoforderMulticaseTests =
   testList "Out Of Order Multi-case DU conversion" [
     let serializer, deserializer = serializer [outoforderDuConverter], deserializer [outoforderDuConverter]
+    let sample = TestCase (true, 1.234, 8s, "hiya", [1;2;3], [[1];[2];[3]])
+    let outStrNice =
+      """ {
+            "boolProp" : true,
+            "floatProp": 1.234,
+            "intProp"  : 8,
+            "strProp"  : "hiya",
+            "arrProp"  : [1,2,3],
+            "nestedArrs":[
+              [1],
+              [2],
+              [3]
+            ]
+          }"""
+    let outStr = System.Text.RegularExpressions.Regex(@"\s+").Replace(outStrNice, "")
 
     yield test "doesn't convert non-DU type" {
       Expect.isFalse (outoforderDuConverter.CanConvert typeof<string>) "cannot convert non-du types"
@@ -117,12 +136,12 @@ let outoforderMulticaseTests =
     }
 
     yield test "can write case" {
-      let result = serializer (MostlySingleCaseDU.B "foobar")
-      Expect.equal result """{"value":"foobar"}""" "should serialize correctly"
+      let result = serializer sample
+      Expect.equal result outStr "should serialize correctly"
     }
 
     yield test "can read case" {
-      let result: DeserializationTargetMulti = deserializer """{"things":{"value":"foo", "kind": "B"}}"""
-      Expect.equal result { things = MostlySingleCaseDU.B "foo" } "should translate back again"
+      let result = deserializer outStr
+      Expect.equal result sample "should translate back again"
     }
   ]

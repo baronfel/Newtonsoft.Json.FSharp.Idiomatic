@@ -49,9 +49,84 @@ module Reflection =
 
   let (|MapKey|_|) (key: 'a) map = map |> Map.tryFind key
 
+  let advance (reader: JsonReader) =
+    reader.Read() |> ignore
+    reader
+
+  /// needs to read a jsonreader's properties and buffer the various json property values into separate JsonReaders,
+  /// so that we can use the property names later to find the case info containing those properties,
+  /// so that we can use the case reflection info to actually deserialize the jsonreaders into the correct types
   let getPropsAndReaders (reader: JsonReader) : Map<string, JsonReader> =
-    match reader.TokenType with
-    Map.empty
+    let inline tokToReader (tok: #JToken) = tok.CreateReader ()
+    let rec readValueIntoJToken   (reader: JsonReader): JToken * JsonReader =
+      printfn "reading token of type %s" (string reader.TokenType)
+      let result =
+        match reader.TokenType with
+        | JsonToken.Boolean     -> (reader.Value :?> bool)    |> JToken.op_Implicit
+        | JsonToken.Float       -> (reader.Value :?> float)   |> JToken.op_Implicit
+        | JsonToken.Integer     -> (reader.Value :?> int64)   |> JToken.op_Implicit
+        | JsonToken.String      -> (reader.Value :?> string)  |> JToken.op_Implicit
+        | x                     -> failwithf "don't know how to read value of type %s into a JToken" (string x)
+      result, advance reader
+    and readObjectIntoJObject     (reader: JsonReader): JObject * JsonReader = failwith "boom"
+    and readArrayIntoJArray       (reader: JsonReader): JArray * JsonReader  =
+      let reader' = advance reader
+      // what kind of items are we pulling out?
+      let readF =
+        match reader'.TokenType with
+        | JsonToken.Boolean
+        | JsonToken.Float
+        | JsonToken.Integer
+        | JsonToken.String ->
+          printfn "reading array of %ss" (string reader'.TokenType)
+          readValueIntoJToken
+          // read many values until end of array
+        | JsonToken.StartArray ->
+          printfn "reading array of arrays"
+          readArrayIntoJArray >> fun (a, reader) -> a :> _, reader
+        | JsonToken.StartObject ->
+          printfn "reading array of objects"
+          readObjectIntoJObject >> fun (o, reader) -> o :> _, reader
+        | n -> failwithf "don't know how to read multiples of %s" (string n)
+
+      let rec loop (reader: JsonReader) (arr: JArray) =
+        match reader.TokenType with
+        | JsonToken.EndArray ->
+          arr, advance reader
+        | _ ->
+          let item, reader' = readF reader
+          printfn "next token is of type %s" (string reader'.TokenType)
+          arr.Add item
+          loop reader' arr
+
+      loop reader (JArray())
+
+    and readValueIntoJTokenReader (reader: JsonReader): JsonReader * JsonReader =
+      match reader.TokenType with
+      | JsonToken.Boolean
+      | JsonToken.Float
+      | JsonToken.Integer
+      | JsonToken.String
+      | JsonToken.Null        -> readValueIntoJToken reader |> fun (tok, reader) -> tokToReader tok, reader
+      | JsonToken.StartArray  -> readArrayIntoJArray reader |> fun (tok, reader) -> tokToReader tok, reader
+      | JsonToken.StartObject -> readObjectIntoJObject reader |> fun (tok, reader) -> tokToReader tok, reader
+      | x                     -> failwithf "value reader doesn't know how to handle JToken of type %s" (string x)
+
+    let rec loop (reader: JsonReader) propMap =
+      match reader.TokenType with
+      | JsonToken.None -> propMap
+      | JsonToken.StartObject
+      | JsonToken.EndObject ->
+        loop (advance reader) propMap
+      | JsonToken.PropertyName ->
+        let name = reader.Value :?> string
+        printfn "reading '%s'" name
+        let reader' = advance reader
+        let (value, reader'') = readValueIntoJTokenReader reader'
+        loop (reader'') (propMap |> Map.add name value)
+      | x -> failwithf "outer property reader loop doesn't know how to handle JToken of type %s" (string x)
+
+    loop (advance reader) Map.empty
 
 open Reflection
 
@@ -191,7 +266,10 @@ type OutOfOrderMultiCaseDuConverter () =
       | cases -> failwithf "mutiple cases (%A) of type `%s` have properties named %A" (cases |> List.map fst) t.AssemblyQualifiedName propSet
 
     let propsAndReaders = getPropsAndReaders reader
-    let case = findCaseByProperties (propsAndReaders |> Map.toSeq |> Seq.map fst)
+    let propNames = propsAndReaders |> Map.toSeq |> Seq.map fst
+    printfn "looking for case with properties %A" propNames
+    let case = findCaseByProperties propNames
+    printfn "found case %s" case.Name
     let casePropsInOrder = fieldsByCaseName |> Map.find case.Name |> Array.map (fun prop -> propsAndReaders |> Map.find prop.Name |> fun r -> serializer.Deserialize(r, prop.PropertyType))
     FSharpValue.MakeUnion(case, casePropsInOrder)
 
