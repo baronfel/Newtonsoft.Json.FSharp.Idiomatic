@@ -2,7 +2,7 @@ language: csharp
 sudo: required
 dist: trusty
 
-dotnet: 2.1.101
+dotnet: 2.1.300-preview2-008533
 mono:
   - 5.8.0
   - latest # => "stable release"
