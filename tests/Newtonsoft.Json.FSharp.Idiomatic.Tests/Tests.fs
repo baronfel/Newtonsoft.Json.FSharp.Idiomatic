@@ -26,9 +26,9 @@ let inline serializer converters =
   let settings = settings converters
   fun o -> JsonConvert.SerializeObject(o, settings)
 
-let inline deserializer<'a> (converters: JsonConverter list) =
+let inline deserializer<'a> (converters: JsonConverter list) s=
   let settings = settings converters
-  fun (s: string) -> JsonConvert.DeserializeObject<'a>(s, settings)
+  JsonConvert.DeserializeObject<'a>(s, settings)
 
 type SingleCaseDU =
 | A
@@ -100,14 +100,19 @@ let multiCaseTests =
     }
   ]
 
+type Inner = {foo: string}
 type Harness =
-| TestCase of boolProp: bool * floatProp : float * intProp : int16 * strProp : string * arrProp : int list * nestedArrs : int list list
+| TestCase of boolProp: bool * floatProp : float * intProp : int16 * strProp : string * arrProp : int list * nestedArrs : int list list * nestedObj : Inner * nestedObjArray : Inner list
+
+type Dupes =
+| First of samename: bool
+| Second of samename: bool
 
 [<Tests>]
 let outoforderMulticaseTests =
   testList "Out Of Order Multi-case DU conversion" [
     let serializer, deserializer = serializer [outoforderDuConverter], deserializer [outoforderDuConverter]
-    let sample = TestCase (true, 1.234, 8s, "hiya", [1;2;3], [[1];[2];[3]])
+    let sample = TestCase (true, 1.234, 8s, "hiya", [1;2;3], [[1];[2];[3]], {foo = "hi"}, [{foo = "hi1"}; {foo = "hi2"}])
     let outStrNice =
       """ {
             "boolProp" : true,
@@ -119,6 +124,13 @@ let outoforderMulticaseTests =
               [1],
               [2],
               [3]
+            ],
+            "nestedObj": {
+              "foo": "hi"
+            },
+            "nestedObjArray": [
+              { "foo": "hi1" },
+              { "foo": "hi2" }
             ]
           }"""
     let outStr = System.Text.RegularExpressions.Regex(@"\s+").Replace(outStrNice, "")
@@ -143,5 +155,35 @@ let outoforderMulticaseTests =
     yield test "can read case" {
       let result = deserializer outStr
       Expect.equal result sample "should translate back again"
+    }
+
+    yield test "can read out of order case" {
+      let outStrJumbled =
+        """ {
+              "nestedObj": {
+                "foo": "hi"
+              },
+              "floatProp": 1.234,
+              "boolProp" : true,
+              "strProp"  : "hiya",
+              "intProp"  : 8,
+              "nestedArrs":[
+                [1],
+                [2],
+                [3]
+              ],
+              "arrProp"  : [1,2,3],
+              "nestedObjArray": [
+                { "foo": "hi1" },
+                { "foo": "hi2" }
+              ]
+            }"""
+      let result = deserializer outStr
+      Expect.equal result sample "should handle propnames out of order"
+    }
+
+    yield test "should fail if property list is not exact match" {
+      let ``inner json with extra prop`` = """{"foo" : "bar", "thing":false}"""
+      Expect.throws (fun _ -> deserializer ``inner json with extra prop`` |> ignore) "should't be able to handle extra props"
     }
   ]
