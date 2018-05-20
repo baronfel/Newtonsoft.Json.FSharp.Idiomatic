@@ -1,6 +1,16 @@
-# MyLib
+# Newtonsoft.Json.FSharp.Idiomatic
 
-[Enter useful description for MyLib]
+A set of Converters for Json.Net that (de)serialize unions in a nicer format than the out-of-box converters.
+
+The provided converters are:
+* `OptionConverter`
+  * allows for use of options instead of nullables, treats Null as None
+* `SingleCaseDuConverter`
+  * reads and writes enum-style DU's (ie `type Foo = | Bar | Baz | Qux`) as their string name
+* `MultiCaseDuConverter`
+  * reads and writes DUs with data attached as an object with a `kind` property equal to the case name, and whose property names and values are drawn from the DU property names and value. This Converter is fairly fragile and requires that the `kind` property (or a customizable property name) is first in order on the JSON.
+* `OutOfOrderMultiCaseDuConverter`
+  * This converter reads/buffers the object properties of a JSON object and uses the property names to infer the correct DU case to deserialize into. It requires that your DU cases have property names that are set-distinct (that is no 100% overlap), and that the JSON contains all properties of the DU, even if some of them are `null`.
 
 ---
 
