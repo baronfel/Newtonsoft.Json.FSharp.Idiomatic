@@ -229,7 +229,7 @@ Target "GitRelease" (fun _ ->
     Branches.pushTag "" "origin" release.NugetVersion
 )
 
-#load "paket-files/build/fsharp/FAKE/modules/Octokit/Octokit.fsx"
+#load "./paket-files/build/fsharp/FAKE/modules/Octokit/Octokit.fsx"
 open Octokit
 
 Target "GitHubRelease" (fun _ ->
