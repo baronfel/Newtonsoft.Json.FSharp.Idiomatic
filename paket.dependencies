@@ -13,7 +13,7 @@ nuget Newtonsoft.Json
 group Build
   framework: >= net45
   source https://www.nuget.org/api/v2
-  nuget FAKE
+  nuget FAKE prerelease
   github fsharp/FAKE modules/Octokit/Octokit.fsx
   nuget altcover
   nuget ReportGenerator
