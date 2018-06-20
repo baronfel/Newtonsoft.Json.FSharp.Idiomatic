@@ -102,7 +102,7 @@ let multiCaseTests =
 
 type Inner = {foo: string}
 type Harness =
-| TestCase of boolProp: bool * floatProp : float * intProp : int16 * strProp : string * arrProp : int list * nestedArrs : int list list * nestedObj : Inner * nestedObjArray : Inner list
+| TestCase of boolProp: bool * floatProp : float * intProp : int16 * strProp : string * arrProp : int list * nestedArrs : int list list * nestedObj : Inner * nestedObjArray : Inner list * optionalThing : int option
 
 type Dupes =
 | First of samename: bool
@@ -112,7 +112,7 @@ type Dupes =
 let outoforderMulticaseTests =
   testList "Out Of Order Multi-case DU conversion" [
     let serializer, deserializer = serializer [outoforderDuConverter], deserializer [outoforderDuConverter]
-    let sample = TestCase (true, 1.234, 8s, "hiya", [1;2;3], [[1];[2];[3]], {foo = "hi"}, [{foo = "hi1"}; {foo = "hi2"}])
+    let sample = TestCase (true, 1.234, 8s, "hiya", [1;2;3], [[1];[2];[3]], {foo = "hi"}, [{foo = "hi1"}; {foo = "hi2"}], None)
     let outStrNice =
       """ {
             "boolProp" : true,
@@ -131,7 +131,8 @@ let outoforderMulticaseTests =
             "nestedObjArray": [
               { "foo": "hi1" },
               { "foo": "hi2" }
-            ]
+            ],
+            "optionalThing":null
           }"""
     let outStr = System.Text.RegularExpressions.Regex(@"\s+").Replace(outStrNice, "")
 

@@ -69,6 +69,7 @@ module Reflection =
         | JsonToken.Float       -> (reader.Value :?> float)   |> JToken.op_Implicit
         | JsonToken.Integer     -> (reader.Value :?> int64)   |> JToken.op_Implicit
         | JsonToken.String      -> (reader.Value :?> string)  |> JToken.op_Implicit
+        | JsonToken.Null        -> JValue.CreateNull()        :> JToken
         | x                     -> failwithf "don't know how to read value of type %s into a JToken" (string x)
       result, advance reader
   and readObjectIntoJObject     (reader: JsonReader): JObject * JsonReader =
@@ -247,6 +248,8 @@ type MultiCaseDuConverter (casePropertyName) =
 type OutOfOrderMultiCaseDuConverter () =
   inherit JsonConverter ()
 
+  static let isExactMatch caseFields providedFields = caseFields = providedFields
+
   override __.CanConvert y =
     FSharpType.IsUnion y
     && not (Reflection.allCasesEmpty y)
@@ -272,9 +275,21 @@ type OutOfOrderMultiCaseDuConverter () =
     let fieldsByCaseName = cases |> Array.map (fun case -> case.Name, case.GetFields()) |> Map.ofArray
     let fieldNamesByCase = fieldsByCaseName |> Map.map (fun _case fields  -> fields |> Seq.map (fun field -> field.Name) |> Set.ofSeq)
 
+    let isSubsetAndAllMissingAreOptional ((caseName, caseFields): string * Set<string>) (providedFields: Set<string>) =
+      match caseFields.IsSupersetOf providedFields with
+      | true ->
+        let caseProps = fieldsByCaseName |> Map.find caseName
+        let missingFields = (caseFields - providedFields)
+        let missingFieldProps =
+          missingFields
+          |> Seq.map (fun missingFieldName -> caseProps |> Array.tryFind (fun prop -> prop.Name = missingFieldName))
+        missingFieldProps
+        |> Seq.forall (function | None -> false | Some p -> isOption p.PropertyType)
+      | false -> false
+
     let findCaseByProperties allProps =
       let propSet = allProps |> Set.ofSeq
-      match fieldNamesByCase |> Map.filter (fun _key fields -> fields = propSet) |> Map.toList with
+      match fieldNamesByCase |> Map.filter (fun key fields -> isExactMatch fields propSet || isSubsetAndAllMissingAreOptional (key, fields) propSet) |> Map.toList with
       | [] -> failwithf "no case of type `%s` has properties named %A" t.AssemblyQualifiedName propSet
       | [(case, _fields)] -> casesByName |> Map.find case
       | cases -> failwithf "mutiple cases (%A) of type `%s` have properties named %A" (cases |> List.map fst) t.AssemblyQualifiedName propSet
@@ -284,6 +299,16 @@ type OutOfOrderMultiCaseDuConverter () =
     logfn "looking for case with properties %A" propNames
     let case = findCaseByProperties propNames
     logfn "found case %s" case.Name
-    let casePropsInOrder = fieldsByCaseName |> Map.find case.Name |> Array.map (fun prop -> propsAndReaders |> Map.find prop.Name |> fun r -> serializer.Deserialize(r, prop.PropertyType))
+    let caseFields = fieldsByCaseName |> Map.find case.Name
+    let casePropsInOrder =
+      caseFields
+      |> Array.map (fun prop ->
+        let existingReader = propsAndReaders |> Map.tryFind prop.Name
+        match existingReader with
+        | Some reader -> serializer.Deserialize(reader, prop.PropertyType)
+        // this line makes it so that if a json object is missing a field and the backing field is an 'a Option, `None` is used instead.
+        | None when isOption prop.PropertyType -> box None
+        | None -> failwithf "no value provided for required property %s of DU case %s" prop.Name case.Name
+      )
     FSharpValue.MakeUnion(case, casePropsInOrder)
 
